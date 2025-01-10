@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../models/app_settings.dart';
 import '../models/game_settings.dart';
 import '../models/player.dart';
 import '../services/storage_service.dart';
@@ -21,23 +23,33 @@ class _StartScreenState extends State<StartScreen> {
   Player? rightPlayer;
   int defaultDuration = 900; // 15 minutes
   bool isCountdownEnabled = true;
+  bool isRoundTimer = false;
+  int roundDuration = 30;
+  late AppSettings appSettings;
 
   @override
   void initState() {
     super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     _loadData();
   }
 
   Future<void> _loadData() async {
     final loadedPlayers = await widget.storageService.loadPlayers();
     final lastGame = await widget.storageService.loadLastGame();
+    appSettings = await widget.storageService.loadAppSettings();
     setState(() {
       players = loadedPlayers;
       if (lastGame != null) {
+        print("_loadData lastGame: ${lastGame.toJson()}");
         leftPlayer = players.firstWhere((p) => p.id == lastGame.leftPlayerId);
         rightPlayer = players.firstWhere((p) => p.id == lastGame.rightPlayerId);
         defaultDuration = lastGame.duration;
         isCountdownEnabled = lastGame.isCountdownEnabled;
+        isRoundTimer = lastGame.isRoundTimer;
+        roundDuration = lastGame.roundDuration;
       }
     });
   }
@@ -71,39 +83,51 @@ class _StartScreenState extends State<StartScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  '计分板',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                        // crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            '计分板',
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 32),
+                          _buildPlayerSelector('左方选手', leftPlayer,
+                              (Player? p) => setState(() => leftPlayer = p)),
+                          const SizedBox(height: 16),
+                          _buildPlayerSelector('右方选手', rightPlayer,
+                              (Player? p) => setState(() => rightPlayer = p)),
+                          const SizedBox(height: 32),
+                          _buildDurationSelector(),
+                          _buildCountdownToggle(),
+                          _buildRoundTimerToggle(),
+                          if (isRoundTimer) ...[
+                            const SizedBox(height: 16),
+                            _buildRoundDurationSelector(),
+                          ],
+                        ]),
                   ),
-                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
-                _buildPlayerSelector('左方选手', leftPlayer,
-                    (Player? p) => setState(() => leftPlayer = p)),
-                const SizedBox(height: 16),
-                _buildPlayerSelector('右方选手', rightPlayer,
-                    (Player? p) => setState(() => rightPlayer = p)),
-                const SizedBox(height: 32),
-                _buildDurationSelector(),
-                const SizedBox(height: 16),
-                _buildCountdownToggle(),
-                const Spacer(),
-                ElevatedButton(
-                  onPressed: (leftPlayer != null && rightPlayer != null)
-                      ? () => _startGame()
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.blue.shade900,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontSize: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (leftPlayer != null && rightPlayer != null)
+                        ? () => _startGame()
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.blue.shade900,
+                      textStyle: const TextStyle(fontSize: 18),
+                    ),
+                    child: const Text('开始比赛'),
                   ),
-                  child: const Text('开始比赛'),
                 ),
               ],
             ),
@@ -217,14 +241,70 @@ class _StartScreenState extends State<StartScreen> {
     );
   }
 
+  Widget _buildRoundTimerToggle() {
+    return SwitchListTile(
+      title: const Text(
+        '启用单轮计时',
+        style: TextStyle(color: Colors.white, fontSize: 16),
+      ),
+      value: isRoundTimer,
+      onChanged: (value) {
+        setState(() => isRoundTimer = value);
+      },
+      activeColor: Colors.white,
+      activeTrackColor: Colors.blue.shade300,
+      inactiveThumbColor: Colors.grey.shade400,
+      inactiveTrackColor: Colors.grey.shade700,
+    );
+  }
+
+  Widget _buildRoundDurationSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '单轮时长',
+          style: TextStyle(color: Colors.white70, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: roundDuration,
+              isExpanded: true,
+              dropdownColor: Colors.blue.shade800,
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              items: [15, 30, 45, 60].map((int value) {
+                return DropdownMenuItem<int>(
+                  value: value,
+                  child: Text('$value 秒'),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() => roundDuration = value!);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _startGame() {
     widget.storageService.saveLastGame(GameSettings(
       leftPlayerId: leftPlayer!.id,
       rightPlayerId: rightPlayer!.id,
       duration: defaultDuration,
       isCountdownEnabled: isCountdownEnabled,
+      isRoundTimer: isRoundTimer,
+      roundDuration: roundDuration,
     ));
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ScoreBoard(
           storageService: widget.storageService,
@@ -232,8 +312,11 @@ class _StartScreenState extends State<StartScreen> {
           rightPlayer: rightPlayer!,
           defaultDuration: defaultDuration,
           isCountdownEnabled: isCountdownEnabled,
+          isRoundTimer: isRoundTimer,
+          roundDuration: roundDuration,
         ),
       ),
     );
   }
+
 }

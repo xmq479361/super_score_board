@@ -5,6 +5,8 @@ class GameState {
   final int rightScore;
   final int timeLeft;
   final bool isCountdownEnabled;
+  final int leftTotalTime;
+  final int rightTotalTime;
 
   GameState({
     required this.leftPlayerId,
@@ -13,6 +15,8 @@ class GameState {
     required this.rightScore,
     required this.timeLeft,
     required this.isCountdownEnabled,
+    required this.leftTotalTime,
+    required this.rightTotalTime,
   });
 
   Map<String, dynamic> toJson() => {
@@ -22,6 +26,8 @@ class GameState {
     'rightScore': rightScore,
     'timeLeft': timeLeft,
     'isCountdownEnabled': isCountdownEnabled,
+    'leftTotalTime': leftTotalTime,
+    'rightTotalTime': rightTotalTime,
   };
 
   factory GameState.fromJson(Map<String, dynamic> json) => GameState(
@@ -31,6 +37,8 @@ class GameState {
     rightScore: json['rightScore'],
     timeLeft: json['timeLeft'],
     isCountdownEnabled: json['isCountdownEnabled'],
+    leftTotalTime: json['leftTotalTime'],
+    rightTotalTime: json['rightTotalTime'],
   );
 }
 

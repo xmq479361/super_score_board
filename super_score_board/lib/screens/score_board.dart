@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../models/app_settings.dart';
 import '../models/game_record.dart';
 import '../models/game_state.dart';
 import '../models/player.dart';
@@ -14,6 +16,8 @@ class ScoreBoard extends StatefulWidget {
   final Player rightPlayer;
   final int defaultDuration;
   final bool isCountdownEnabled;
+  final bool isRoundTimer;
+  final int roundDuration;
 
   const ScoreBoard({
     Key? key,
@@ -22,6 +26,8 @@ class ScoreBoard extends StatefulWidget {
     required this.rightPlayer,
     required this.defaultDuration,
     required this.isCountdownEnabled,
+    required this.isRoundTimer,
+    required this.roundDuration,
   }) : super(key: key);
 
   @override
@@ -36,15 +42,25 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   int _timeLeft = 0;
   bool isTimerRunning = false;
   Timer? _timer;
+  bool _isReversed = false;
+  bool _showTotalTime = true;
+  int _leftTotalTime = 0;
+  int _rightTotalTime = 0;
+  late AppSettings _appSettings;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     leftPlayer = widget.leftPlayer;
     rightPlayer = widget.rightPlayer;
     _timeLeft = widget.defaultDuration;
     _loadGameState();
+    _loadAppSettings();
     if (widget.isCountdownEnabled) {
       _startTimer();
     }
@@ -53,6 +69,9 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     _timer?.cancel();
     _saveGameState();
     super.dispose();
@@ -67,6 +86,14 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadAppSettings() async {
+    _appSettings = await widget.storageService.loadAppSettings();
+    setState(() {
+      _isReversed = _appSettings.isReversedDisplay;
+      _showTotalTime = _appSettings.showTotalTime;
+    });
+  }
+
   void _saveGameState() {
     widget.storageService.saveGameState(GameState(
       leftPlayerId: leftPlayer.id,
@@ -75,18 +102,23 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
       rightScore: rightScore,
       timeLeft: _timeLeft,
       isCountdownEnabled: widget.isCountdownEnabled,
+      leftTotalTime: _leftTotalTime,
+      rightTotalTime: _rightTotalTime,
     ));
   }
 
   Future<void> _loadGameState() async {
     final gameState = await widget.storageService.loadGameState();
-    if (gameState != null) {
-      setState(() {
-        leftScore = gameState.leftScore;
-        rightScore = gameState.rightScore;
-        _timeLeft = gameState.timeLeft;
-      });
-    }
+    // if (gameState != null) {
+    //   print("_loadGameState: ${gameState.toJson()}");
+    //   setState(() {
+    //     leftScore = gameState.leftScore;
+    //     rightScore = gameState.rightScore;
+    //     _timeLeft = gameState.timeLeft;
+    //     _leftTotalTime = gameState.leftTotalTime;
+    //     _rightTotalTime = gameState.rightTotalTime;
+    //   });
+    // }
   }
 
   void _updateScore(bool isLeft, bool increment) {
@@ -140,8 +172,16 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
+        print("_startTimer: $_timeLeft, ${_leftTotalTime}");
         if (_timeLeft > 0) {
           _timeLeft--;
+          if (widget.isRoundTimer) {
+            if (_isReversed) {
+              _leftTotalTime++;
+            } else {
+              _rightTotalTime++;
+            }
+          }
         } else {
           _timer?.cancel();
           _showGameOverDialog();
@@ -176,28 +216,42 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('设置'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('反转显示'),
-              trailing: Switch(
-                value: false, // TODO: Implement invert display logic
-                onChanged: (value) {
-                  // TODO: Implement invert display logic
-                },
-              ),
-            ),
-            ListTile(
-              title: const Text('背景音乐'),
-              trailing: Switch(
-                value: false, // TODO: Implement background music logic
-                onChanged: (value) {
-                  // TODO: Implement background music logic
-                },
-              ),
-            ),
-          ],
+        content: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  title: const Text('反转显示'),
+                  value: _isReversed,
+                  onChanged: (value) {
+                    setState(() => _isReversed = value);
+                    _appSettings.isReversedDisplay = value;
+                    widget.storageService.saveAppSettings(_appSettings);
+                  },
+                ),
+                if (widget.isRoundTimer)
+                  SwitchListTile(
+                    title: const Text('显示总用时'),
+                    value: _showTotalTime,
+                    onChanged: (value) {
+                      setState(() => _showTotalTime = value);
+                      _appSettings.showTotalTime = value;
+                      widget.storageService.saveAppSettings(_appSettings);
+                    },
+                  ),
+                // SwitchListTile(
+                //   title: const Text('背景音乐'),
+                //   trailing: Switch(
+                //     value: false, // TODO: Implement background music logic
+                //     onChanged: (value) {
+                //       // TODO: Implement background music logic
+                //     },
+                //   ),
+                // ),
+              ],
+            );
+          },
         ),
         actions: [
           TextButton(
@@ -212,6 +266,7 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   Widget _buildScoreSection(bool isLeft) {
     final player = isLeft ? leftPlayer : rightPlayer;
     final score = isLeft ? leftScore : rightScore;
+    final totalTime = isLeft ? _leftTotalTime : _rightTotalTime;
     return Expanded(
       child: GestureDetector(
         onTap: () => _updateScore(isLeft, true),
@@ -243,7 +298,14 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
-                ),
+                ),  if (widget.isRoundTimer && _showTotalTime)
+            Text(
+            '总用时: ${_formatTime(totalTime)}',
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white70,
+        ),
+      ),
                 // Text(
                 //   '历史最高: ${player.highestScore}',
                 //   style: const TextStyle(
@@ -269,7 +331,8 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   Widget _buildControlBar() {
     return Container(
       color: Colors.black54,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -299,6 +362,11 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final scoreWidgets = [
+      _buildScoreSection(true),
+      _buildScoreSection(false),
+    ];
+
     return WillPopScope(
       onWillPop: () async {
         _saveGameState();
@@ -309,10 +377,7 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
           children: [
             Expanded(
               child: Row(
-                children: [
-                  _buildScoreSection(true),
-                  _buildScoreSection(false),
-                ],
+                children: _isReversed ? scoreWidgets.reversed.toList() : scoreWidgets,
               ),
             ),
             _buildControlBar(),

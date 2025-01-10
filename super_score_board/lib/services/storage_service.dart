@@ -1,8 +1,11 @@
 import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/player.dart';
+
+import '../models/app_settings.dart';
 import '../models/game_settings.dart';
 import '../models/game_state.dart';
+import '../models/player.dart';
 
 class StorageService {
   final SharedPreferences _prefs;
@@ -24,28 +27,38 @@ class StorageService {
 
   // Last game settings methods
   Future<void> saveLastGame(GameSettings settings) async {
-    await _prefs.setString('lastGame', jsonEncode(settings.toJson()));
+    print("saveGame: ${settings.toJson()}");
+    await _prefs.setString('_lastGame', jsonEncode(settings.toJson()));
   }
 
   Future<GameSettings?> loadLastGame() async {
-    final String? data = _prefs.getString('lastGame');
+    final String? data = _prefs.getString('_lastGame');
     if (data == null) return null;
     return GameSettings.fromJson(jsonDecode(data));
   }
 
   // Game state methods
   Future<void> saveGameState(GameState state) async {
-    await _prefs.setString('gameState', jsonEncode(state.toJson()));
+    await _prefs.setString('_gameState', jsonEncode(state.toJson()));
   }
 
   Future<GameState?> loadGameState() async {
-    final String? data = _prefs.getString('gameState');
+    final String? data = _prefs.getString('_gameState');
     if (data == null) return null;
     return GameState.fromJson(jsonDecode(data));
   }
 
   Future<void> clearGameState() async {
-    await _prefs.remove('gameState');
+    await _prefs.remove('_gameState');
+  }
+
+  Future<void> saveAppSettings(AppSettings settings) async {
+    await _prefs.setString('appSettings', jsonEncode(settings.toJson()));
+  }
+
+  Future<AppSettings> loadAppSettings() async {
+    final String? data = _prefs.getString('appSettings');
+    if (data == null) return AppSettings();
+    return AppSettings.fromJson(jsonDecode(data));
   }
 }
-
