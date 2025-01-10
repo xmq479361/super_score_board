@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/app_settings.dart';
-import '../models/game_record.dart';
 import '../models/game_state.dart';
 import '../models/player.dart';
 import '../services/storage_service.dart';
@@ -18,6 +17,7 @@ class ScoreBoard extends StatefulWidget {
   final bool isCountdownEnabled;
   final bool isRoundTimer;
   final int roundDuration;
+  final bool isRestoredGame;
 
   const ScoreBoard({
     Key? key,
@@ -28,6 +28,7 @@ class ScoreBoard extends StatefulWidget {
     required this.isCountdownEnabled,
     required this.isRoundTimer,
     required this.roundDuration,
+    required this.isRestoredGame,
   }) : super(key: key);
 
   @override
@@ -47,6 +48,7 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   int _leftTotalTime = 0;
   int _rightTotalTime = 0;
   late AppSettings _appSettings;
+  bool _isFaceToFace = false;
 
   @override
   void initState() {
@@ -59,8 +61,12 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
     leftPlayer = widget.leftPlayer;
     rightPlayer = widget.rightPlayer;
     _timeLeft = widget.defaultDuration;
-    _loadGameState();
     _loadAppSettings();
+    if (widget.isRestoredGame) {
+      _loadGameState();
+    } else {
+      _initializeNewGame();
+    }
     if (widget.isCountdownEnabled) {
       _startTimer();
     }
@@ -69,11 +75,11 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    _saveGameState();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
-    _timer?.cancel();
-    _saveGameState();
     super.dispose();
   }
 
@@ -91,6 +97,17 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
     setState(() {
       _isReversed = _appSettings.isReversedDisplay;
       _showTotalTime = _appSettings.showTotalTime;
+      _isFaceToFace = _appSettings.isFaceToFace;
+    });
+  }
+
+  void _initializeNewGame() {
+    setState(() {
+      leftScore = 0;
+      rightScore = 0;
+      _leftTotalTime = 0;
+      _rightTotalTime = 0;
+      _timeLeft = widget.defaultDuration;
     });
   }
 
@@ -109,16 +126,16 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
 
   Future<void> _loadGameState() async {
     final gameState = await widget.storageService.loadGameState();
-    // if (gameState != null) {
-    //   print("_loadGameState: ${gameState.toJson()}");
-    //   setState(() {
-    //     leftScore = gameState.leftScore;
-    //     rightScore = gameState.rightScore;
-    //     _timeLeft = gameState.timeLeft;
-    //     _leftTotalTime = gameState.leftTotalTime;
-    //     _rightTotalTime = gameState.rightTotalTime;
-    //   });
-    // }
+    if (gameState != null) {
+      print("_loadGameState: ${gameState.toJson()}");
+      setState(() {
+        leftScore = gameState.leftScore;
+        rightScore = gameState.rightScore;
+        _timeLeft = gameState.timeLeft;
+        _leftTotalTime = gameState.leftTotalTime;
+        _rightTotalTime = gameState.rightTotalTime;
+      });
+    }
   }
 
   void _updateScore(bool isLeft, bool increment) {
@@ -197,7 +214,8 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('游戏结束'),
-        content: Text('获胜方: $winner\n\n${leftPlayer.name}: $leftScore\n${rightPlayer.name}: $rightScore'),
+        content: Text(
+            '获胜方: $winner\n\n${leftPlayer.name}: $leftScore\n${rightPlayer.name}: $rightScore'),
         actions: [
           TextButton(
             onPressed: () {
@@ -211,8 +229,8 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
     );
   }
 
-  void _showSettings() {
-    showDialog(
+  void _showSettings()  async {
+    var value = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('设置'),
@@ -222,11 +240,11 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SwitchListTile(
-                  title: const Text('反转显示'),
-                  value: _isReversed,
+                  title: const Text('面对面模式'),
+                  value: _isFaceToFace,
                   onChanged: (value) {
-                    setState(() => _isReversed = value);
-                    _appSettings.isReversedDisplay = value;
+                    setState(() => _isFaceToFace = value);
+                    _appSettings.isFaceToFace = value;
                     widget.storageService.saveAppSettings(_appSettings);
                   },
                 ),
@@ -261,70 +279,84 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
         ],
       ),
     );
+    setState(() {
+    });
   }
 
   Widget _buildScoreSection(bool isLeft) {
     final player = isLeft ? leftPlayer : rightPlayer;
-    final score = isLeft ? leftScore : rightScore;
-    final totalTime = isLeft ? _leftTotalTime : _rightTotalTime;
+    var sideBoard = _buildSideScoreBoard(isLeft);
+    if (_isFaceToFace) {
+      sideBoard = Transform(
+          transform: Matrix4.rotationZ(3.14159 * (isLeft ? 3 : 1) / 2),
+          alignment: Alignment.center,
+          child: sideBoard);
+    }
     return Expanded(
       child: GestureDetector(
-        onTap: () => _updateScore(isLeft, true),
-        onVerticalDragEnd: (details) {
-          if (details.velocity.pixelsPerSecond.dy > 0) {
-            _updateScore(isLeft, true);
-          } else if (details.velocity.pixelsPerSecond.dy < 0) {
-            _updateScore(isLeft, false);
-          }
-        },
-        onLongPress: () => _editPlayerInfo(isLeft),
-        child: Container(
-          color: player.color,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  player.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  score.toString(),
-                  style: const TextStyle(
-                    fontSize: 120,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),  if (widget.isRoundTimer && _showTotalTime)
-            Text(
-            '总用时: ${_formatTime(totalTime)}',
-        style: const TextStyle(
-          fontSize: 16,
-          color: Colors.white70,
+          onTap: () => _updateScore(isLeft, true),
+          onVerticalDragEnd: (details) {
+            if (details.velocity.pixelsPerSecond.dy > 0) {
+              _updateScore(isLeft, true);
+            } else if (details.velocity.pixelsPerSecond.dy < 0) {
+              _updateScore(isLeft, false);
+            }
+          },
+          onLongPress: () => _editPlayerInfo(isLeft),
+          child: Container(
+              color: player.color,
+              child: Center(
+                child: sideBoard,
+              ))),
+    );
+  }
+
+  Widget _buildSideScoreBoard(bool isLeft) {
+    final player = isLeft ? leftPlayer : rightPlayer;
+    final score = isLeft ? leftScore : rightScore;
+    final totalTime = isLeft ? _leftTotalTime : _rightTotalTime;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          player.name,
+          style: const TextStyle(fontSize: 24, color: Colors.white),
+          textAlign:
+              _isFaceToFace && !isLeft ? TextAlign.right : TextAlign.left,
         ),
-      ),
-                // Text(
-                //   '历史最高: ${player.highestScore}',
-                //   style: const TextStyle(
-                //     fontSize: 16,
-                //     color: Colors.white70,
-                //   ),
-                // ),
-                // Text(
-                //   '胜率: ${(player.winRate * 100).toStringAsFixed(1)}%',
-                //   style: const TextStyle(
-                //     fontSize: 16,
-                //     color: Colors.white70,
-                //   ),
-                // ),
-              ],
+        Text(
+          score.toString(),
+          style: const TextStyle(
+            fontSize: 120,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          textAlign:
+              _isFaceToFace && !isLeft ? TextAlign.right : TextAlign.left,
+        ),
+        if (widget.isRoundTimer && _showTotalTime)
+          Text(
+            '总用时: ${_formatTime(totalTime)}',
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.white70,
             ),
           ),
-        ),
-      ),
+        // Text(
+        //   '历史最高: ${player.highestScore}',
+        //   style: const TextStyle(
+        //     fontSize: 16,
+        //     color: Colors.white70,
+        //   ),
+        // ),
+        // Text(
+        //   '胜率: ${(player.winRate * 100).toStringAsFixed(1)}%',
+        //   style: const TextStyle(
+        //     fontSize: 16,
+        //     color: Colors.white70,
+        //   ),
+        // ),
+      ],
     );
   }
 
@@ -344,10 +376,7 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
           if (widget.isCountdownEnabled)
             Text(
               _formatTime(_timeLeft),
-              style: const TextStyle(
-                fontSize: 24,
-                color: Colors.white,
-              ),
+              style: const TextStyle(fontSize: 24, color: Colors.white),
             ),
           if (widget.isCountdownEnabled)
             IconButton(
@@ -377,7 +406,8 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
           children: [
             Expanded(
               child: Row(
-                children: _isReversed ? scoreWidgets.reversed.toList() : scoreWidgets,
+                children:
+                    _isReversed ? scoreWidgets.reversed.toList() : scoreWidgets,
               ),
             ),
             _buildControlBar(),

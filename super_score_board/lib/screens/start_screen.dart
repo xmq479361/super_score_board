@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../models/app_settings.dart';
 import '../models/game_settings.dart';
+import '../models/game_state.dart';
 import '../models/player.dart';
 import '../services/storage_service.dart';
 import '../widgets/add_player_dialog.dart';
@@ -26,6 +27,7 @@ class _StartScreenState extends State<StartScreen> {
   bool isRoundTimer = false;
   int roundDuration = 30;
   late AppSettings appSettings;
+  GameState? savedGameState;
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _StartScreenState extends State<StartScreen> {
     final loadedPlayers = await widget.storageService.loadPlayers();
     final lastGame = await widget.storageService.loadLastGame();
     appSettings = await widget.storageService.loadAppSettings();
+    savedGameState = await widget.storageService.loadGameState();
     setState(() {
       players = loadedPlayers;
       if (lastGame != null) {
@@ -115,18 +118,32 @@ class _StartScreenState extends State<StartScreen> {
                         ]),
                   ),
                 ),
+                if (savedGameState != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _resumeGame(),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.green,
+                        backgroundColor: Colors.white,
+                        textStyle: const TextStyle(fontSize: 18),
+                      ),
+                      child: const Text('恢复上次游戏'),
+                    ),
+                  ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: (leftPlayer != null && rightPlayer != null)
-                        ? () => _startGame()
+                        ? () => _startNewGame()
                         : null,
                     style: ElevatedButton.styleFrom(
                       foregroundColor: Colors.white,
                       backgroundColor: Colors.blue.shade900,
                       textStyle: const TextStyle(fontSize: 18),
                     ),
-                    child: const Text('开始比赛'),
+                    child: const Text('开始新游戏'),
                   ),
                 ),
               ],
@@ -295,7 +312,30 @@ class _StartScreenState extends State<StartScreen> {
     );
   }
 
-  void _startGame() {
+  void _startNewGame() {
+    widget.storageService.saveLastGame(GameSettings(
+      leftPlayerId: leftPlayer!.id,
+      rightPlayerId: rightPlayer!.id,
+      duration: defaultDuration,
+      isCountdownEnabled: isCountdownEnabled,
+      isRoundTimer: isRoundTimer,
+      roundDuration: roundDuration,
+    ));
+    widget.storageService.clearGameState();
+    _navigateToScoreBoard(isRestoredGame: false);
+  }
+
+  void _resumeGame() {
+    if (savedGameState != null) {
+      leftPlayer =
+          players.firstWhere((p) => p.id == savedGameState!.leftPlayerId);
+      rightPlayer =
+          players.firstWhere((p) => p.id == savedGameState!.rightPlayerId);
+      _navigateToScoreBoard(isRestoredGame: true);
+    }
+  }
+
+  void _navigateToScoreBoard({required bool isRestoredGame}) {
     widget.storageService.saveLastGame(GameSettings(
       leftPlayerId: leftPlayer!.id,
       rightPlayerId: rightPlayer!.id,
@@ -314,9 +354,9 @@ class _StartScreenState extends State<StartScreen> {
           isCountdownEnabled: isCountdownEnabled,
           isRoundTimer: isRoundTimer,
           roundDuration: roundDuration,
+          isRestoredGame: isRestoredGame,
         ),
       ),
     );
   }
-
 }
