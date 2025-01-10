@@ -35,6 +35,7 @@ class _AddPlayerDialogState extends State<AddPlayerDialog> {
               Colors.red,
               Colors.green,
               Colors.orange,
+              Colors.pinkAccent.shade100,
               Colors.purple,
               Colors.teal,
             ].map((color) => GestureDetector(

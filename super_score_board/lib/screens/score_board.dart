@@ -13,18 +13,16 @@ class ScoreBoard extends StatefulWidget {
   final Player leftPlayer;
   final Player rightPlayer;
   final int defaultDuration;
-  final bool isRoundTimer;
-  final int roundDuration;
+  final bool isCountdownEnabled;
 
   const ScoreBoard({
-    super.key,
+    Key? key,
     required this.storageService,
     required this.leftPlayer,
     required this.rightPlayer,
     required this.defaultDuration,
-    required this.isRoundTimer,
-    required this.roundDuration,
-  });
+    required this.isCountdownEnabled,
+  }) : super(key: key);
 
   @override
   State<ScoreBoard> createState() => _ScoreBoardState();
@@ -35,13 +33,9 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   late Player rightPlayer;
   int leftScore = 0;
   int rightScore = 0;
-  bool isInverted = false;
-  Timer? _timer;
   int _timeLeft = 0;
   bool isTimerRunning = false;
-  bool isLeftPlayerTurn = true;
-  int _roundTimeLeft = 0;
-  late GameRecord currentGame;
+  Timer? _timer;
 
   @override
   void initState() {
@@ -49,23 +43,18 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     leftPlayer = widget.leftPlayer;
     rightPlayer = widget.rightPlayer;
-    currentGame = GameRecord(
-      id: DateTime.now().toString(),
-      leftPlayerId: leftPlayer.id,
-      rightPlayerId: rightPlayer.id,
-      startTime: DateTime.now(),
-      duration: widget.defaultDuration,
-      leftScore: 0,
-      rightScore: 0,
-    );
     _timeLeft = widget.defaultDuration;
-    _roundTimeLeft = widget.roundDuration;
+    _loadGameState();
+    if (widget.isCountdownEnabled) {
+      _startTimer();
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _saveGameState();
     super.dispose();
   }
 
@@ -85,9 +74,7 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
       leftScore: leftScore,
       rightScore: rightScore,
       timeLeft: _timeLeft,
-      isRoundTimer: widget.isRoundTimer,
-      roundTimeLeft: _roundTimeLeft,
-      isLeftPlayerTurn: isLeftPlayerTurn,
+      isCountdownEnabled: widget.isCountdownEnabled,
     ));
   }
 
@@ -98,8 +85,6 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
         leftScore = gameState.leftScore;
         rightScore = gameState.rightScore;
         _timeLeft = gameState.timeLeft;
-        _roundTimeLeft = gameState.roundTimeLeft;
-        isLeftPlayerTurn = gameState.isLeftPlayerTurn;
       });
     }
   }
@@ -108,8 +93,10 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
     setState(() {
       if (isLeft) {
         leftScore += increment ? 1 : -1;
+        if (leftScore < 0) leftScore = 0;
       } else {
         rightScore += increment ? 1 : -1;
+        if (rightScore < 0) rightScore = 0;
       }
     });
   }
@@ -139,27 +126,45 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   }
 
   void _showTimerDialog() {
+    setState(() {
+      isTimerRunning = !isTimerRunning;
+    });
+    if (isTimerRunning) {
+      _startTimer();
+    } else {
+      _timer?.cancel();
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_timeLeft > 0) {
+          _timeLeft--;
+        } else {
+          _timer?.cancel();
+          _showGameOverDialog();
+        }
+      });
+    });
+  }
+
+  void _showGameOverDialog() {
+    String winner = leftScore > rightScore ? leftPlayer.name : rightPlayer.name;
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('倒计时设置'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Add timer settings here
-          ],
-        ),
+        title: const Text('游戏结束'),
+        content: Text('获胜方: $winner\n\n${leftPlayer.name}: $leftScore\n${rightPlayer.name}: $rightScore'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
             onPressed: () {
-              // Handle timer settings changes
-              Navigator.pop(context);
+              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Return to StartScreen
             },
-            child: const Text('OK'),
+            child: const Text('返回主菜单'),
           ),
         ],
       ),
@@ -167,12 +172,46 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
   }
 
   void _showSettings() {
-    // Implement settings dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('反转显示'),
+              trailing: Switch(
+                value: false, // TODO: Implement invert display logic
+                onChanged: (value) {
+                  // TODO: Implement invert display logic
+                },
+              ),
+            ),
+            ListTile(
+              title: const Text('背景音乐'),
+              trailing: Switch(
+                value: false, // TODO: Implement background music logic
+                onChanged: (value) {
+                  // TODO: Implement background music logic
+                },
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
-    Widget _buildScoreSection(bool isLeft) {
-      final player = isLeft ? leftPlayer : rightPlayer;
-      final score = isLeft ? leftScore : rightScore;
+  Widget _buildScoreSection(bool isLeft) {
+    final player = isLeft ? leftPlayer : rightPlayer;
+    final score = isLeft ? leftScore : rightScore;
     return Expanded(
       child: GestureDetector(
         onTap: () => _updateScore(isLeft, true),
@@ -219,15 +258,6 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
                 //     color: Colors.white70,
                 //   ),
                 // ),
-                if (widget.isRoundTimer)
-                  Text(
-                    isLeft == isLeftPlayerTurn ? '当前回合' : '',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -248,15 +278,7 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
             onPressed: _showSettings,
             color: Colors.white,
           ),
-          if (widget.isRoundTimer)
-            Text(
-              '回合时间: ${_formatTime(_roundTimeLeft)}',
-              style: const TextStyle(
-                fontSize: 18,
-                color: Colors.white,
-              ),
-            )
-          else
+          if (widget.isCountdownEnabled)
             Text(
               _formatTime(_timeLeft),
               style: const TextStyle(
@@ -264,43 +286,15 @@ class _ScoreBoardState extends State<ScoreBoard> with WidgetsBindingObserver {
                 color: Colors.white,
               ),
             ),
-          if (widget.isRoundTimer)
-            IconButton(
-              icon: const Icon(Icons.swap_horiz),
-              onPressed: _switchTurn,
-              color: Colors.white,
-            )
-          else
+          if (widget.isCountdownEnabled)
             IconButton(
               icon: Icon(isTimerRunning ? Icons.pause : Icons.play_arrow),
-              onPressed: () => _showTimerDialog(),
+              onPressed: _showTimerDialog,
               color: Colors.white,
             ),
         ],
       ),
     );
-  }
-
-  void _switchTurn() {
-    setState(() {
-      isLeftPlayerTurn = !isLeftPlayerTurn;
-      _roundTimeLeft = widget.roundDuration;
-    });
-    _startRoundTimer();
-  }
-
-  void _startRoundTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_roundTimeLeft > 0) {
-          _roundTimeLeft--;
-        } else {
-          _timer?.cancel();
-          _switchTurn();
-        }
-      });
-    });
   }
 
   @override

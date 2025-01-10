@@ -35,6 +35,7 @@ class ScoreApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         brightness: Brightness.dark,
       ),
+      debugShowCheckedModeBanner: false,
       home: StartScreen(storageService: storageService),
     );
   }
