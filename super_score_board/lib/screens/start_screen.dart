@@ -290,7 +290,7 @@ class _StartScreenState extends State<StartScreen> {
   Widget _buildRoundTimerToggle() {
     return SwitchListTile(
       title: const Text(
-        '启用单轮计时',
+        '回合计时',
         style: TextStyle(color: Colors.white, fontSize: 16),
       ),
       value: isRoundTimer,
@@ -318,6 +318,7 @@ class _StartScreenState extends State<StartScreen> {
             color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: roundDuration,

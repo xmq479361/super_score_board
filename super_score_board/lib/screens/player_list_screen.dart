@@ -107,7 +107,7 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
             ),
             title: Text(player.name),
             subtitle:
-                Text('最高分: ${player.highestScore}, 胜场: ${player.wonGames}'),
+                Text('最高分: ${player.highestScore}, 胜场: ${player.wonGames}, 胜率: ${(player.winRate * 100).toStringAsFixed(1)}%'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

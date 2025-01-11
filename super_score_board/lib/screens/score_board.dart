@@ -204,15 +204,22 @@ class _ScoreBoardState extends State<ScoreBoard>
         if (widget.isRoundTimer) {
           _roundTimeLeft--;
           if (_roundTimeLeft <= 0) {
-            _switchActivePlayer();
+            _timer?.cancel();
+            _showRoundEndConfirmation();
           }
-        }
-        if (_isLeftPlayerActive) {
-          _leftTotalTime++;
+          if (_isLeftPlayerActive) {
+            _leftTotalTime++;
+          } else {
+            _rightTotalTime++;
+          }
         } else {
-          _timer?.cancel();
-          _showGameOverDialog();
-          _rightTotalTime++;
+          if (_isLeftPlayerActive) {
+            _leftTotalTime++;
+          } else {
+            _timer?.cancel();
+            _showGameOverDialog();
+            _rightTotalTime++;
+          }
         }
       });
     });
@@ -223,13 +230,47 @@ class _ScoreBoardState extends State<ScoreBoard>
       _isLeftPlayerActive = !_isLeftPlayerActive;
       _roundTimeLeft = widget.roundDuration;
     });
+    _startTimer();
   }
 
-  void _showGameOverDialog() {
+  void _showRoundEndConfirmation() {
+    setState(() {
+      _switchActivePlayer();
+    });
+    // showDialog(
+    //   context: context,
+    //   barrierDismissible: false,
+    //   builder: (context) => AlertDialog(
+    //     title: Text('回合结束'),
+    //     content: Text(
+    //         '${_isLeftPlayerActive ? leftPlayer.name : rightPlayer.name} 的回合已结束。是否切换到下一位选手？'),
+    //     actions: [
+    //       TextButton(
+    //         onPressed: () {
+    //           Navigator.of(context).pop();
+    //           _switchActivePlayer();
+    //         },
+    //         child: Text('确认'),
+    //       ),
+    //       TextButton(
+    //         onPressed: () {
+    //           Navigator.of(context).pop();
+    //           setState(() {
+    //             _roundTimeLeft = widget.roundDuration;
+    //           });
+    //         },
+    //         child: const Text('延长回合'),
+    //       ),
+    //     ],
+    //   ),
+    // );
+  }
+
+  void _showGameOverDialog() async {
     String winner = leftScore > rightScore ? leftPlayer.name : rightPlayer.name;
     Player winningPlayer = leftScore > rightScore ? leftPlayer : rightPlayer;
     Player losingPlayer = leftScore > rightScore ? rightPlayer : leftPlayer;
-
+    print("left: $leftScore, $rightScore, ${winningPlayer.toJson()}");
     winningPlayer.wonGames++;
     winningPlayer.totalGames++;
     losingPlayer.totalGames++;
@@ -243,16 +284,18 @@ class _ScoreBoardState extends State<ScoreBoard>
 
     widget.storageService.savePlayers([winningPlayer, losingPlayer]);
 
-    showDialog(
+    await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('游戏结束'),
-        content: Column(
+        content: SingleChildScrollView(
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('获胜方: $winner'),
+            Text('获胜方: $winner',
+                style: const TextStyle(color: Colors.yellowAccent)),
             const SizedBox(height: 16),
             Text('${leftPlayer.name}: $leftScore'),
             Text('最高分: ${leftPlayer.highestScore}'),
@@ -264,11 +307,12 @@ class _ScoreBoardState extends State<ScoreBoard>
             Text(
                 '胜率: ${(rightPlayer.wonGames / rightPlayer.totalGames * 100).toStringAsFixed(2)}%'),
           ],
-        ),
+        )),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 15),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
               Navigator.of(context).pop(); // Return to StartScreen
             },
             child: const Text('返回主菜单'),
@@ -276,6 +320,7 @@ class _ScoreBoardState extends State<ScoreBoard>
         ],
       ),
     );
+    Navigator.of(context).pop();
   }
 
   void _showSettings() async {
@@ -373,9 +418,24 @@ class _ScoreBoardState extends State<ScoreBoard>
           }
         },
         onLongPress: () => _editPlayerInfo(isLeft),
-        child: Container(
-            color: player.color, //.withOpacity(isActive ? 1.0 : 0.5),
-            child: Center(child: sideBoard)),
+        child: Stack(
+          children: [
+            Container(color: player.color, child: Center(child: sideBoard)),
+            if (isActive && widget.isRoundTimer)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: ElevatedButton(
+                  onPressed: _showRoundEndConfirmation,
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: player.color.withAlpha(9),
+                  ),
+                  child: const Text('结束回合'),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -422,33 +482,6 @@ class _ScoreBoardState extends State<ScoreBoard>
                 : TextAlign.left,
           ),
         ),
-        // AnimatedBuilder(
-        //
-        //     animation: _scoreAnimation,
-        //     builder: (context, child) {
-        //       final displayScore = previousScore +
-        //           (_scoreAnimation.value * (score - previousScore)).round();
-        //       return Text(
-        //         displayScore.toString(),
-        //         style: const TextStyle(
-        //           fontSize: 120,
-        //           fontWeight: FontWeight.bold,
-        //           color: Colors.white,
-        //         ),
-        //         textAlign:
-        //             _isFaceToFace && !isLeft ? TextAlign.right : TextAlign.left,
-        //       );
-        //     }),
-        // Text(
-        //   score.toString(),
-        //   style: const TextStyle(
-        //     fontSize: 120,
-        //     fontWeight: FontWeight.bold,
-        //     color: Colors.white,
-        //   ),
-        //   textAlign:
-        //       _isFaceToFace && !isLeft ? TextAlign.right : TextAlign.left,
-        // ),
         if (widget.isRoundTimer && _appSettings.showTotalTime)
           Text(
             '总用时: ${_formatTime(totalTime)}',
@@ -524,61 +557,66 @@ class _ScoreBoardState extends State<ScoreBoard>
     ];
 
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        final shouldPop = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('结束游戏'),
-            content: const Text('确定要结束当前游戏吗？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () {
-                  _saveGameState();
-                  Navigator.of(context).pop(true);
-                },
-                child: const Text('确定'),
-              ),
-            ],
-          ),
-        );
-        if (shouldPop ?? false == true) {
-          Navigator.of(context).pop(true);
-        }
-      },
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          final shouldPop = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('结束游戏'),
+              content: const Text('确定要结束当前游戏吗？'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _saveGameState();
+                    Navigator.of(context).pop(true);
+                  },
+                  child: const Text('确定'),
+                ),
+              ],
+            ),
+          );
+          if (shouldPop ?? false == true) {
+            _showGameOverDialog();
+          }
+        },
         child: Scaffold(
-          body: Column(
-              children: [
-                _buildControlBar(),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Row(
-                        children: _appSettings.isReversedDisplay ? scoreWidgets.reversed.toList() : scoreWidgets,
-                      ),
-                      if (_isOverlayVisible)
-                        Container(
-                          color: Colors.black.withOpacity(0.7),
-                          child: Center(
-                            child: TweenAnimationBuilder<int>(
-                              tween: IntTween(begin: 3, end: 0),
-                              duration: const Duration(seconds: 3),
-                              builder: (BuildContext context, int value, Widget? child) {
-                                return Text(
-                                  value.toString(),
-                                  style: const TextStyle(fontSize: 72, color: Colors.white),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                    ],
+          body: Column(children: [
+            _buildControlBar(),
+            Expanded(
+              child: Stack(
+                children: [
+                  Row(
+                    children: _appSettings.isReversedDisplay
+                        ? scoreWidgets.reversed.toList()
+                        : scoreWidgets,
                   ),
-                ),]),));
+                  if (_isOverlayVisible)
+                    Container(
+                      color: Colors.black.withOpacity(0.7),
+                      child: Center(
+                        child: TweenAnimationBuilder<int>(
+                          tween: IntTween(begin: 3, end: 0),
+                          duration: const Duration(seconds: 3),
+                          builder:
+                              (BuildContext context, int value, Widget? child) {
+                            return Text(
+                              value.toString(),
+                              style: const TextStyle(
+                                  fontSize: 72, color: Colors.white),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ]),
+        ));
     //   child: Scaffold(
     //     body: Stack(children: [
     //       _buildControlBar(),
