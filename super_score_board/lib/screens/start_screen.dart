@@ -7,6 +7,7 @@ import '../models/game_state.dart';
 import '../models/player.dart';
 import '../services/storage_service.dart';
 import '../widgets/add_player_dialog.dart';
+import 'player_list_screen.dart';
 import 'score_board.dart';
 
 class StartScreen extends StatefulWidget {
@@ -36,6 +37,9 @@ class _StartScreenState extends State<StartScreen> {
       DeviceOrientation.portraitUp,
     ]);
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkUnfinishedGame();
+    });
   }
 
   Future<void> _loadData() async {
@@ -92,20 +96,43 @@ class _StartScreenState extends State<StartScreen> {
                     child: Column(
                         // crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            '计分板',
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            textAlign: TextAlign.center,
+                          // const Text(
+                          //   '计分板',
+                          //   style: TextStyle(
+                          //     fontSize: 36,
+                          //     fontWeight: FontWeight.bold,
+                          //     color: Colors.white,
+                          //   ),
+                          //   textAlign: TextAlign.center,
+                          // ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '计分板',
+                                style: TextStyle(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.people, color: Colors.white),
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => PlayerListScreen(storageService: widget.storageService),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 32),
-                          _buildPlayerSelector('左方选手', leftPlayer,
+                          _buildPlayerSelector('左方选手', leftPlayer, rightPlayer?.id,
                               (Player? p) => setState(() => leftPlayer = p)),
                           const SizedBox(height: 16),
-                          _buildPlayerSelector('右方选手', rightPlayer,
+                          _buildPlayerSelector('右方选手', rightPlayer, leftPlayer?.id,
                               (Player? p) => setState(() => rightPlayer = p)),
                           const SizedBox(height: 32),
                           _buildDurationSelector(),
@@ -155,7 +182,7 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   Widget _buildPlayerSelector(
-      String label, Player? selectedPlayer, void Function(Player?) onChanged) {
+      String label, Player? selectedPlayer, String? filterId, void Function(Player?) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -178,7 +205,9 @@ class _StartScreenState extends State<StartScreen> {
               icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
               style: const TextStyle(color: Colors.white, fontSize: 16),
               items: [
-                ...players.map((p) => DropdownMenuItem(
+                ...players
+                    .where((player)=> filterId != player.id)
+                    .map((p) => DropdownMenuItem(
                     value: p,
                     child: Container(
                         color: p.color,
@@ -313,6 +342,13 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   void _startNewGame() {
+    if (leftPlayer?.id == rightPlayer?.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('左右选手不能相同，请重新选择')),
+      );
+      return;
+    }
+
     widget.storageService.saveLastGame(GameSettings(
       leftPlayerId: leftPlayer!.id,
       rightPlayerId: rightPlayer!.id,
@@ -358,5 +394,35 @@ class _StartScreenState extends State<StartScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _checkUnfinishedGame() async {
+    final gameState = await widget.storageService.loadGameState();
+    if (gameState != null) {
+      final shouldResume = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('未完成的游戏'),
+          content: const Text('检测到上次有未完成的游戏，是否恢复？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                widget.storageService.clearGameState();
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('开始新游戏'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('恢复游戏'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldResume == true) {
+        _resumeGame();
+      }
+    }
   }
 }

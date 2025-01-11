@@ -32,8 +32,16 @@ class ScoreApp extends StatelessWidget {
     return MaterialApp(
       title: '计分板',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
         brightness: Brightness.dark,
+        scaffoldBackgroundColor: Colors.blue,
+        appBarTheme: const AppBarTheme(
+            scrolledUnderElevation: 0,
+            titleTextStyle: TextStyle(color: Colors.white, fontSize: 16),
+            toolbarHeight: 44,
+            centerTitle: true,
+            iconTheme: IconThemeData(color: Colors.white),
+            backgroundColor: Colors.transparent,
+            elevation: 2),
       ),
       debugShowCheckedModeBanner: false,
       home: StartScreen(storageService: storageService),

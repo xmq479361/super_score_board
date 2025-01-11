@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/player.dart';
-import 'color_pick_button.dart';
 
 class PlayerEditDialog extends StatefulWidget {
   final Player player;
@@ -35,7 +34,9 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('编辑选手信息'),
-      content: Column(
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 8.0),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12.0),
+      content: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
@@ -71,7 +72,7 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
             )).toList(),
           ),
         ],
-      ),
+      )),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -79,15 +80,16 @@ class _PlayerEditDialogState extends State<PlayerEditDialog> {
         ),
         TextButton(
           onPressed: () {
-            widget.onSave(Player(
+            Player updatedPlayer = Player(
               id: widget.player.id,
               name: _nameController.text,
               color: _selectedColor,
               highestScore: widget.player.highestScore,
               totalGames: widget.player.totalGames,
               wonGames: widget.player.wonGames,
-            ));
-            Navigator.pop(context);
+            );
+            widget.onSave(updatedPlayer);
+            Navigator.pop(context, updatedPlayer);
           },
           child: const Text('保存'),
         ),
