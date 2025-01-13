@@ -1,0 +1,150 @@
+flutter_native_splash:
+  # 本软件包生成本地代码，用于自定义 Flutter 的默认白色本地闪屏
+  # 背景颜色和闪屏图像。
+  # 自定义以下参数，并在终端运行以下命令：
+  # dart run flutter_native_splash:create
+  # 要恢复 Flutter 的默认白色闪屏，请在终端中运行以下命令：
+  # dart run flutter_native_splash:remove
+
+  # 重要提示：这些参数不会影响 Android 12 及更高版本的配置，因为 Android 12 及更高版本对闪屏的处理方式与 Android 12 及更高版本不同。
+  # 处理闪屏的方式与之前版本的 Android 不同。
+  # 安卓 12 及更高版本必须在下面的 android_12 部分进行专门配置。
+
+  # color 或 background_image 是唯一需要的参数。  使用 color 可将
+  # 设置为纯色。  使用 background_image 可将 # 闪屏背景 # 设置为 png 格式。
+  # 设置为 png 图像。  这对渐变非常有用。图片将根据
+  # 应用程序的大小。只能使用一个参数，不能同时设置 color 和 background_image。
+  color: "#DDDDDD"
+#  background_image: assets/splash/background.jpg
+
+  # 可选参数如下。 要启用参数，请通过删除
+  # 前导 # 字符。
+
+  # image 参数允许你指定启动画面中使用的图像。 它必须是
+  # png 文件，并且大小应为 4 倍像素密度。
+  image: assets/splash/splash_icon.png
+
+  # branding 属性允许您指定在启动画面中用作品牌的图像。
+  # 它必须是一个 png 文件。它支持 Android、iOS 和 Web。 对于 Android 12，
+  # 请参阅下面的 Android 12 部分。
+#  branding: assets/splash/splash_icon.png
+
+  # 要将品牌图像置于屏幕底部，可以使用 bottom、bottomRight
+  # 和 bottomLeft。如果没有指定或指定了其他值，默认值为 bottom。
+  #branding_mode: bottom
+
+  # 从屏幕底部设置品牌填充。 默认值为 0
+  # branding_bottom_padding: 24
+
+  # color_dark、background_image_dark、image_dark 和 branding_dark 参数用于设置设备在黑暗模式下的背景
+  # 和图像的参数。如果未指定这些参数，应用程序将使用上面的
+  # 以上参数。如果指定了 image_dark 参数，则 color_dark 或
+  # color_dark 和 background_image_dark 不能同时设置。
+  # 设置。
+  #color_dark: "#042a49"
+  #background_image_dark: "assets/dark-splash.png"
+#  image_dark: assets/splash/splash_icon.png
+  #branding_dark: assets/dart_dark.png
+
+  # From Android 12 onwards, the splash screen is handled differently than in previous versions.
+  # Please visit https://developer.android.com/guide/topics/ui/splash-screen
+  # Following are specific parameters for Android 12+.
+  android_12:
+#    # The image parameter sets the splash screen icon image.  If this parameter is not specified,
+#    # the app's launcher icon will be used instead.
+#    # Please note that the splash screen will be clipped to a circle on the center of the screen.
+#    # App icon with an icon background: This should be 960×960 pixels, and fit within a circle
+#    # 640 pixels in diameter.
+#    # App icon without an icon background: This should be 1152×1152 pixels, and fit within a circle
+#    # 768 pixels in diameter.
+    image: assets/splash/splash_icon.png
+    color: "#EDEFF1"
+
+  # Splash screen background color.
+#    color: "#42a5f5"
+
+  # App icon background color.
+#    icon_background_color: "#111111"
+
+  # The branding property allows you to specify an image used as branding in the splash screen.
+  #branding: assets/dart.png
+
+  # The image_dark, color_dark, icon_background_color_dark, and branding_dark set values that
+  # apply when the device is in dark mode. If they are not specified, the app will use the
+  # parameters from above.
+  #image_dark: assets/android12splash-invert.png
+  #color_dark: "#042a49"
+  #icon_background_color_dark: "#eeeeee"
+
+  # The android, ios and web parameters can be used to disable generating a splash screen on a given
+  # platform.
+  #android: false
+  #ios: false
+#  web: false
+
+  # Platform specific images can be specified with the following parameters, which will override
+  # the respective parameter.  You may specify all, selected, or none of these parameters:
+  #color_android: "#42a5f5"
+  #color_dark_android: "#042a49"
+  #color_ios: "#42a5f5"
+  #color_dark_ios: "#042a49"
+  #color_web: "#42a5f5"
+  #color_dark_web: "#042a49"
+  #image_android: assets/splash-android.png
+  #image_dark_android: assets/splash-invert-android.png
+  #image_ios: assets/splash-ios.png
+  #image_dark_ios: assets/splash-invert-ios.png
+  #image_web: assets/splash-web.gif
+  #image_dark_web: assets/splash-invert-web.gif
+  #background_image_android: assets/splash/bg.png
+  #background_image_dark_android: "assets/dark-background-android.png"
+  #background_image_ios: "assets/background-ios.png"
+  #background_image_dark_ios: "assets/dark-background-ios.png"
+  #background_image_web: "assets/background-web.png"
+  #background_image_dark_web: "assets/dark-background-web.png"
+  #branding_android: assets/brand-android.png
+  #branding_bottom_padding_android: 24
+  #branding_dark_android: assets/dart_dark-android.png
+  #branding_ios: assets/brand-ios.png
+  #branding_bottom_padding_ios: 24
+  #branding_dark_ios: assets/dart_dark-ios.png
+  #branding_web: assets/brand-web.gif
+  #branding_dark_web: assets/dart_dark-web.gif
+
+  # The position of the splash image can be set with android_gravity, ios_content_mode, and
+  # web_image_mode parameters.  All default to center.
+  #
+  # android_gravity can be one of the following Android Gravity (see
+  # https://developer.android.com/reference/android/view/Gravity): bottom, center,
+  # center_horizontal, center_vertical, clip_horizontal, clip_vertical, end, fill, fill_horizontal,
+  # fill_vertical, left, right, start, or top.
+  #android_gravity: center
+  #
+  # ios_content_mode can be one of the following iOS UIView.ContentMode (see
+  # https://developer.apple.com/documentation/uikit/uiview/contentmode): scaleToFill,
+  # scaleAspectFit, scaleAspectFill, center, top, bottom, left, right, topLeft, topRight,
+  # bottomLeft, or bottomRight.
+  #ios_content_mode: center
+  #
+  # web_image_mode can be one of the following modes: center, contain, stretch, and cover.
+  #web_image_mode: center
+
+  # The screen orientation can be set in Android with the android_screen_orientation parameter.
+  # Valid parameters can be found here:
+  # https://developer.android.com/guide/topics/manifest/activity-element#screen
+  #android_screen_orientation: sensorLandscape
+
+  # To hide the notification bar, use the fullscreen parameter.  Has no effect in web since web
+  # has no notification bar.  Defaults to false.
+  # NOTE: Unlike Android, iOS will not automatically show the notification bar when the app loads.
+  #       To show the notification bar, add the following code to your Flutter app:
+  #       WidgetsFlutterBinding.ensureInitialized();
+  #       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.bottom, SystemUiOverlay.top], );
+  #  fullscreen: true
+
+  # If you have changed the name(s) of your info.plist file(s), you can specify the filename(s)
+  # with the info_plist_files parameter.  Remove only the # characters in the three lines below,
+  # do not remove any spaces:
+  #info_plist_files:
+  #  - 'ios/Runner/Info-Debug.plist'
+  #  - 'ios/Runner/Info-Release.plist'

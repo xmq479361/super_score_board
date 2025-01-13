@@ -44,6 +44,7 @@ class _ScoreBoardState extends State<ScoreBoard>
   int rightScore = 0;
   int _timeLeft = 0;
   bool isTimerRunning = false;
+  bool isGameOver = false;
   Timer? _timer;
   int _leftTotalTime = 0;
   int _rightTotalTime = 0;
@@ -113,6 +114,7 @@ class _ScoreBoardState extends State<ScoreBoard>
   }
 
   void _saveGameState() {
+    if (isGameOver) return;
     widget.storageService.saveGameState(GameState(
       leftPlayerId: leftPlayer.id,
       rightPlayerId: rightPlayer.id,
@@ -281,9 +283,9 @@ class _ScoreBoardState extends State<ScoreBoard>
     if (rightScore > losingPlayer.highestScore) {
       losingPlayer.highestScore = rightScore;
     }
-
+    isGameOver = true;
     widget.storageService.savePlayers([winningPlayer, losingPlayer]);
-
+    widget.storageService.clearGameState();
     await showDialog(
       context: context,
       barrierDismissible: false,

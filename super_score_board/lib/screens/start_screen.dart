@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import '../models/app_settings.dart';
 import '../models/game_settings.dart';
@@ -40,6 +41,7 @@ class _StartScreenState extends State<StartScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUnfinishedGame();
     });
+    FlutterNativeSplash.remove();
   }
 
   Future<void> _loadData() async {
@@ -94,17 +96,7 @@ class _StartScreenState extends State<StartScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
-                        // crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // const Text(
-                          //   '计分板',
-                          //   style: TextStyle(
-                          //     fontSize: 36,
-                          //     fontWeight: FontWeight.bold,
-                          //     color: Colors.white,
-                          //   ),
-                          //   textAlign: TextAlign.center,
-                          // ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -372,7 +364,7 @@ class _StartScreenState extends State<StartScreen> {
     }
   }
 
-  void _navigateToScoreBoard({required bool isRestoredGame}) {
+  void _navigateToScoreBoard({required bool isRestoredGame}) async {
     widget.storageService.saveLastGame(GameSettings(
       leftPlayerId: leftPlayer!.id,
       rightPlayerId: rightPlayer!.id,
@@ -381,7 +373,7 @@ class _StartScreenState extends State<StartScreen> {
       isRoundTimer: isRoundTimer,
       roundDuration: roundDuration,
     ));
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ScoreBoard(
           storageService: widget.storageService,
@@ -395,6 +387,7 @@ class _StartScreenState extends State<StartScreen> {
         ),
       ),
     );
+    _loadData();
   }
 
   Future<void> _checkUnfinishedGame() async {
